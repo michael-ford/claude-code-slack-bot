@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { Logger } from './logger.js';
+import { config } from './config.js';
 
 const logger = new Logger('UserSettingsStore');
 
@@ -25,12 +26,22 @@ export const MODEL_ALIASES: Record<string, ModelId> = {
 
 export const DEFAULT_MODEL: ModelId = 'claude-sonnet-4-5-20250929';
 
+// Verbosity levels
+export const VERBOSITY_LEVELS = ['minimal', 'filtered', 'verbose'] as const;
+export type VerbosityLevel = typeof VERBOSITY_LEVELS[number];
+
+// Get default verbosity from config (environment variable) or fallback to 'minimal'
+export function getDefaultVerbosity(): VerbosityLevel {
+  return config.verbosity.default;
+}
+
 export interface UserSettings {
   userId: string;
   defaultDirectory: string;
   bypassPermission: boolean;
   persona: string;  // persona file name (without .md extension)
   defaultModel: ModelId;  // default model for new sessions
+  verbosityLevel: VerbosityLevel;  // tool output verbosity
   lastUpdated: string;
   // Jira integration
   jiraAccountId?: string;
@@ -166,6 +177,7 @@ export class UserSettingsStore {
         bypassPermission: existing?.bypassPermission ?? false,
         persona: existing?.persona ?? 'default',
         defaultModel: existing?.defaultModel ?? DEFAULT_MODEL,
+        verbosityLevel: existing?.verbosityLevel ?? getDefaultVerbosity(),
         lastUpdated: new Date().toISOString(),
         jiraAccountId: mapping.jiraAccountId,
         jiraName: mapping.name,
@@ -224,6 +236,7 @@ export class UserSettingsStore {
       bypassPermission: existing?.bypassPermission ?? false,
       persona: existing?.persona ?? 'default',
       defaultModel: existing?.defaultModel ?? DEFAULT_MODEL,
+      verbosityLevel: existing?.verbosityLevel ?? getDefaultVerbosity(),
       lastUpdated: new Date().toISOString(),
     };
     this.saveSettings();
@@ -252,6 +265,7 @@ export class UserSettingsStore {
         bypassPermission: bypass,
         persona: 'default',
         defaultModel: DEFAULT_MODEL,
+        verbosityLevel: getDefaultVerbosity(),
         lastUpdated: new Date().toISOString(),
       };
     }
@@ -281,6 +295,7 @@ export class UserSettingsStore {
         bypassPermission: false,
         persona,
         defaultModel: DEFAULT_MODEL,
+        verbosityLevel: getDefaultVerbosity(),
         lastUpdated: new Date().toISOString(),
       };
     }
@@ -310,6 +325,7 @@ export class UserSettingsStore {
         bypassPermission: false,
         persona: 'default',
         defaultModel: model,
+        verbosityLevel: getDefaultVerbosity(),
         lastUpdated: new Date().toISOString(),
       };
     }
@@ -390,6 +406,36 @@ export class UserSettingsStore {
       userCount: Object.keys(this.settings).length,
       directories,
     };
+  }
+
+  /**
+   * Get user's verbosity level
+   */
+  getUserVerbosity(userId: string): VerbosityLevel {
+    const userSettings = this.settings[userId];
+    return userSettings?.verbosityLevel ?? getDefaultVerbosity();
+  }
+
+  /**
+   * Set user's verbosity level
+   */
+  setUserVerbosity(userId: string, level: VerbosityLevel): void {
+    if (this.settings[userId]) {
+      this.settings[userId].verbosityLevel = level;
+      this.settings[userId].lastUpdated = new Date().toISOString();
+    } else {
+      this.settings[userId] = {
+        userId,
+        defaultDirectory: '',
+        bypassPermission: false,
+        persona: 'default',
+        defaultModel: DEFAULT_MODEL,
+        verbosityLevel: level,
+        lastUpdated: new Date().toISOString(),
+      };
+    }
+    this.saveSettings();
+    logger.info('Set user verbosity level', { userId, level });
   }
 }
 

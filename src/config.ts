@@ -27,6 +27,9 @@ export const config = {
     installationId: process.env.GITHUB_INSTALLATION_ID || '',
     token: process.env.GITHUB_TOKEN || '',
   },
+  verbosity: {
+    default: (process.env.DEFAULT_VERBOSITY as 'minimal' | 'filtered' | 'verbose') || 'minimal',
+  },
   debug: process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development',
 };
 

@@ -13,6 +13,7 @@ import { config } from './config';
 import { getCredentialStatus, copyBackupCredentials, hasClaudeAiOauth, isCredentialManagerEnabled } from './credentials-manager';
 import { mcpCallTracker, McpCallTracker } from './mcp-call-tracker';
 import { CommandParser, ToolFormatter, UserChoiceHandler, MessageFormatter } from './slack';
+import { shouldShowToolResult, reloadToolFilter } from './tool-filter';
 
 interface MessageEvent {
   user: string;
@@ -163,15 +164,17 @@ export class SlackHandler {
     // Check if this is an MCP reload command (only if there's text)
     if (text && CommandParser.isMcpReloadCommand(text)) {
       const reloaded = this.mcpManager.reloadConfiguration();
+      // Also reload tool filter configuration
+      reloadToolFilter();
       if (reloaded) {
         const mcpInfo = await this.mcpManager.formatMcpInfo();
         await say({
-          text: `✅ MCP configuration reloaded successfully.\n\n${mcpInfo}`,
+          text: `✅ MCP and tool filter configuration reloaded successfully.\n\n${mcpInfo}`,
           thread_ts: thread_ts || ts,
         });
       } else {
         await say({
-          text: `❌ Failed to reload MCP configuration. Check the mcp-servers.json file.`,
+          text: `❌ Failed to reload MCP configuration. Check the mcp-servers.json file.\n(Tool filter was reloaded successfully.)`,
           thread_ts: thread_ts || ts,
         });
       }
@@ -287,6 +290,38 @@ export class SlackHandler {
             thread_ts: thread_ts || ts,
           });
         }
+      }
+      return;
+    }
+
+    // Check if this is a verbosity command
+    if (text && CommandParser.isVerbosityCommand(text)) {
+      const verbosityAction = CommandParser.parseVerbosityCommand(text);
+
+      if (verbosityAction.action === 'status') {
+        // Show current verbosity level
+        const currentLevel = userSettingsStore.getUserVerbosity(user);
+        const descriptions = {
+          minimal: 'Only errors and final responses are shown',
+          filtered: 'Tool calls and whitelisted results (Edit, Write, Bash, MultiEdit) are shown',
+          verbose: 'All tool calls and results are shown'
+        };
+        await say({
+          text: `📢 *Current Verbosity Level*\n\n*${currentLevel}*\n\n${descriptions[currentLevel]}\n\n_Use \`verbosity <level>\` to change (minimal, filtered, verbose)_`,
+          thread_ts: thread_ts || ts,
+        });
+      } else if (verbosityAction.action === 'set' && verbosityAction.level) {
+        // Set verbosity level
+        userSettingsStore.setUserVerbosity(user, verbosityAction.level);
+        const descriptions = {
+          minimal: 'Only errors and final responses will be shown',
+          filtered: 'Tool calls and whitelisted results (Edit, Write, Bash, MultiEdit) will be shown',
+          verbose: 'All tool calls and results will be shown'
+        };
+        await say({
+          text: `✅ *Verbosity Level Changed*\n\nYour verbosity level is now: *${verbosityAction.level}*\n\n${descriptions[verbosityAction.level]}`,
+          thread_ts: thread_ts || ts,
+        });
       }
       return;
     }
@@ -514,12 +549,16 @@ export class SlackHandler {
             }
 
             // For other tool use messages, format them immediately as new messages
-            const toolContent = ToolFormatter.formatToolUse(message.message.content);
-            if (toolContent) { // Only send if there's content (TodoWrite returns empty string)
-              await say({
-                text: toolContent,
-                thread_ts: thread_ts || ts,
-              });
+            // Check verbosity level to determine if we should show tool calls
+            const verbosity = userSettingsStore.getUserVerbosity(user);
+            if (verbosity !== 'minimal') {
+              const toolContent = ToolFormatter.formatToolUse(message.message.content);
+              if (toolContent) { // Only send if there's content (TodoWrite returns empty string)
+                await say({
+                  text: toolContent,
+                  thread_ts: thread_ts || ts,
+                });
+              }
             }
 
             // Track all tool_use_id -> tool_name mappings and start MCP status AFTER tool use message
@@ -676,13 +715,22 @@ export class SlackHandler {
                 duration,
               });
 
-              // Format and show tool result
-              const formatted = ToolFormatter.formatToolResult(toolResult, duration, mcpCallTracker);
-              if (formatted) {
-                await say({
-                  text: formatted,
-                  thread_ts: thread_ts || ts,
-                });
+              // Check verbosity level to determine if we should show tool results
+              const verbosity = userSettingsStore.getUserVerbosity(user);
+
+              // Always show errors regardless of verbosity level
+              // For non-errors, check if we should show based on verbosity and whitelist
+              const shouldShow = toolResult.isError || shouldShowToolResult(toolResult.toolName || '', verbosity);
+
+              if (shouldShow) {
+                // Format and show tool result
+                const formatted = ToolFormatter.formatToolResult(toolResult, duration, mcpCallTracker);
+                if (formatted) {
+                  await say({
+                    text: formatted,
+                    thread_ts: thread_ts || ts,
+                  });
+                }
               }
             }
           }

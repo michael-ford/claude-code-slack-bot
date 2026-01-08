@@ -5,6 +5,7 @@
 export type BypassAction = 'on' | 'off' | 'status';
 export type PersonaAction = { action: 'list' | 'status' | 'set'; persona?: string };
 export type ModelAction = { action: 'list' | 'status' | 'set'; model?: string };
+export type VerbosityAction = { action: 'status' | 'set'; level?: 'minimal' | 'filtered' | 'verbose' };
 
 export class CommandParser {
   /**
@@ -98,6 +99,28 @@ export class CommandParser {
   }
 
   /**
+   * Check if text is a verbosity command
+   */
+  static isVerbosityCommand(text: string): boolean {
+    return /^\/?verbosity(?:\s+(?:minimal|filtered|verbose))?$/i.test(text.trim());
+  }
+
+  /**
+   * Parse verbosity command
+   */
+  static parseVerbosityCommand(text: string): VerbosityAction {
+    const trimmed = text.trim();
+    const match = trimmed.match(/^\/?verbosity(?:\s+(minimal|filtered|verbose))?$/i);
+
+    if (!match || !match[1]) {
+      return { action: 'status' };
+    }
+
+    const level = match[1].toLowerCase() as 'minimal' | 'filtered' | 'verbose';
+    return { action: 'set', level };
+  }
+
+  /**
    * Check if text is a restore credentials command
    */
   static isRestoreCommand(text: string): boolean {
@@ -167,6 +190,12 @@ export class CommandParser {
       '• `model` or `/model` - Show current default model',
       '• `model list` or `/model list` - List available models',
       '• `model <name>` or `/model <name>` - Set default model (e.g., `model opus-4.5`)',
+      '',
+      '*Verbosity:*',
+      '• `verbosity` or `/verbosity` - Show current verbosity setting',
+      '• `verbosity minimal` - Only show errors and final responses',
+      '• `verbosity filtered` - Show tool calls + whitelisted results',
+      '• `verbosity verbose` - Show all tool calls and results',
       '',
       '*Credentials:*',
       '• `restore` or `/restore` - Restore Claude credentials from backup',

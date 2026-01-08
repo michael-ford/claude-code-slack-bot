@@ -226,12 +226,18 @@ describe('ToolFormatter', () => {
       expect(ToolFormatter.formatBuiltInToolResult({ toolName: 'TodoWrite', toolUseId: 'id', result: 'test' })).toBe(null);
     });
 
-    it('should return null for Glob', () => {
-      expect(ToolFormatter.formatBuiltInToolResult({ toolName: 'Glob', toolUseId: 'id', result: 'test' })).toBe(null);
+    it('should format Glob results', () => {
+      const result = ToolFormatter.formatBuiltInToolResult({ toolName: 'Glob', toolUseId: 'id', result: 'test' });
+      expect(result).toContain('✅');
+      expect(result).toContain('Glob');
+      expect(result).toContain('test');
     });
 
-    it('should return null for Grep', () => {
-      expect(ToolFormatter.formatBuiltInToolResult({ toolName: 'Grep', toolUseId: 'id', result: 'test' })).toBe(null);
+    it('should format Grep results', () => {
+      const result = ToolFormatter.formatBuiltInToolResult({ toolName: 'Grep', toolUseId: 'id', result: 'test' });
+      expect(result).toContain('✅');
+      expect(result).toContain('Grep');
+      expect(result).toContain('test');
     });
 
     it('should format successful result', () => {

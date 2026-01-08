@@ -211,9 +211,9 @@ export class ToolFormatter {
       return null;
     }
 
-    // Skip certain tools that don't need result output
-    const skipTools = ['TodoWrite', 'Glob', 'Grep'];
-    if (skipTools.includes(toolName)) {
+    // Skip TodoWrite (it has special handling elsewhere)
+    // Note: Glob/Grep results are shown based on verbosity level - filtering happens in slack-handler
+    if (toolName === 'TodoWrite') {
       return null;
     }
 

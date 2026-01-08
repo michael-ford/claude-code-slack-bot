@@ -319,6 +319,58 @@ describe('CommandParser', () => {
     });
   });
 
+  describe('isVerbosityCommand', () => {
+    it('should match "verbosity"', () => {
+      expect(CommandParser.isVerbosityCommand('verbosity')).toBe(true);
+    });
+
+    it('should match "/verbosity"', () => {
+      expect(CommandParser.isVerbosityCommand('/verbosity')).toBe(true);
+    });
+
+    it('should match "verbosity minimal"', () => {
+      expect(CommandParser.isVerbosityCommand('verbosity minimal')).toBe(true);
+    });
+
+    it('should match "verbosity filtered"', () => {
+      expect(CommandParser.isVerbosityCommand('verbosity filtered')).toBe(true);
+    });
+
+    it('should match "verbosity verbose"', () => {
+      expect(CommandParser.isVerbosityCommand('verbosity verbose')).toBe(true);
+    });
+
+    it('should not match unrelated text', () => {
+      expect(CommandParser.isVerbosityCommand('hello verbosity')).toBe(false);
+    });
+  });
+
+  describe('parseVerbosityCommand', () => {
+    it('should return status for "verbosity"', () => {
+      expect(CommandParser.parseVerbosityCommand('verbosity')).toEqual({ action: 'status' });
+    });
+
+    it('should return set with level for "verbosity minimal"', () => {
+      expect(CommandParser.parseVerbosityCommand('verbosity minimal')).toEqual({ action: 'set', level: 'minimal' });
+    });
+
+    it('should return set with level for "verbosity filtered"', () => {
+      expect(CommandParser.parseVerbosityCommand('verbosity filtered')).toEqual({ action: 'set', level: 'filtered' });
+    });
+
+    it('should return set with level for "verbosity verbose"', () => {
+      expect(CommandParser.parseVerbosityCommand('verbosity verbose')).toEqual({ action: 'set', level: 'verbose' });
+    });
+
+    it('should be case-insensitive', () => {
+      expect(CommandParser.parseVerbosityCommand('verbosity MINIMAL')).toEqual({ action: 'set', level: 'minimal' });
+    });
+
+    it('should return status for invalid level', () => {
+      expect(CommandParser.parseVerbosityCommand('verbosity invalid')).toEqual({ action: 'status' });
+    });
+  });
+
   describe('parseTerminateCommand', () => {
     it('should parse "terminate session-key"', () => {
       expect(CommandParser.parseTerminateCommand('terminate session-key')).toBe('session-key');
@@ -358,6 +410,7 @@ describe('CommandParser', () => {
       expect(help).toContain('Permissions');
       expect(help).toContain('Persona');
       expect(help).toContain('Model');
+      expect(help).toContain('Verbosity');
       expect(help).toContain('Credentials');
       expect(help).toContain('Help');
     });
