@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import * as fs from 'fs';
 
 dotenv.config();
 
@@ -21,6 +22,9 @@ export const config = {
     alertChannel: process.env.CREDENTIAL_ALERT_CHANNEL || '#backend-general',
   },
   baseDirectory: process.env.BASE_DIRECTORY || '',
+  workingDirectory: {
+    fixed: process.env.FIXED_WORKING_DIRECTORY || '',
+  },
   github: {
     appId: process.env.GITHUB_APP_ID || '',
     privateKey: process.env.GITHUB_PRIVATE_KEY || '',
@@ -45,6 +49,30 @@ export function validateConfig() {
 
   if (missing.length > 0) {
     throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+  }
+
+  // Validate fixed working directory if set
+  if (config.workingDirectory.fixed) {
+    const fixedPath = config.workingDirectory.fixed;
+
+    // Check if path exists
+    if (!fs.existsSync(fixedPath)) {
+      throw new Error(
+        `FIXED_WORKING_DIRECTORY path does not exist: ${fixedPath}\n` +
+          'Please ensure the path exists and is accessible.'
+      );
+    }
+
+    // Check if path is a directory (not a file)
+    const stats = fs.statSync(fixedPath);
+    if (!stats.isDirectory()) {
+      throw new Error(
+        `FIXED_WORKING_DIRECTORY path is not a directory: ${fixedPath}\n` +
+          'Please provide a path to a directory, not a file.'
+      );
+    }
+
+    console.log(`[Config] Fixed working directory: ${fixedPath}`);
   }
 
   // Log if using Claude subscription vs API key

@@ -9,6 +9,22 @@ export class WorkingDirectoryManager {
   private configs: Map<string, WorkingDirectoryConfig> = new Map();
   private logger = new Logger('WorkingDirectoryManager');
 
+  /**
+   * Check if working directory is fixed by configuration
+   * When fixed, users cannot change the working directory via Slack commands
+   */
+  isFixedMode(): boolean {
+    return !!config.workingDirectory.fixed;
+  }
+
+  /**
+   * Get the fixed working directory path from configuration
+   * Returns undefined if not in fixed mode
+   */
+  getFixedDirectory(): string | undefined {
+    return config.workingDirectory.fixed || undefined;
+  }
+
   getConfigKey(channelId: string, threadTs?: string, userId?: string): string {
     if (threadTs) {
       return `${channelId}-${threadTs}`;
@@ -20,6 +36,19 @@ export class WorkingDirectoryManager {
   }
 
   setWorkingDirectory(channelId: string, directory: string, threadTs?: string, userId?: string): { success: boolean; resolvedPath?: string; error?: string } {
+    // In fixed mode, reject any attempts to change the working directory
+    if (this.isFixedMode()) {
+      this.logger.warn('Attempted to change working directory in fixed mode', {
+        channelId,
+        requestedDirectory: directory,
+        fixedDirectory: this.getFixedDirectory(),
+      });
+      return {
+        success: false,
+        error: 'Working directory is fixed by configuration and cannot be changed',
+      };
+    }
+
     try {
       const resolvedPath = this.resolveDirectory(directory);
       
@@ -140,6 +169,13 @@ export class WorkingDirectoryManager {
   }
 
   getWorkingDirectory(channelId: string, threadTs?: string, userId?: string): string | undefined {
+    // In fixed mode, always return the fixed directory
+    if (this.isFixedMode()) {
+      const fixedDir = this.getFixedDirectory();
+      this.logger.debug('Using fixed working directory', { directory: fixedDir });
+      return fixedDir;
+    }
+
     // Priority: Thread > Channel/DM > User Default
     if (threadTs) {
       const threadKey = this.getConfigKey(channelId, threadTs);

@@ -5,6 +5,7 @@ import { McpManager, McpServerConfig } from './mcp-manager';
 import { userSettingsStore } from './user-settings-store';
 import { ensureValidCredentials, getCredentialStatus } from './credentials-manager';
 import { sendCredentialAlert } from './credential-alert';
+import { config } from './config';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -239,6 +240,9 @@ export class ClaudeHandler {
       outputFormat: 'stream-json',
       // Enable permission prompts when we have Slack context, unless user has bypass enabled
       permissionMode: (!slackContext || userBypass) ? 'bypassPermissions' : 'default',
+      // Load project settings (skills, agents, MCP servers) from the working directory
+      // This enables access to .claude/skills/, .claude/agents/, and .mcp.json in the cwd
+      settingSources: ['project'],
     };
 
     // Set model from session or user's default model
@@ -291,8 +295,19 @@ export class ClaudeHandler {
       options.cwd = workingDirectory;
     }
 
-    // Add MCP server configuration if available
-    const mcpServers = await this.mcpManager.getServerConfiguration();
+    // Check if we're in fixed mode (FIXED_WORKING_DIRECTORY is set)
+    // In fixed mode: Don't pass mcpServers from McpManager - SDK will load from .mcp.json via settingSources
+    // In normal mode: Use McpManager to provide bot-level MCP servers
+    const isFixedMode = !!config.workingDirectory.fixed;
+
+    // Get MCP servers from McpManager only in normal mode
+    const mcpServers = isFixedMode ? null : await this.mcpManager.getServerConfiguration();
+
+    if (isFixedMode) {
+      this.logger.debug('Fixed mode: MCP servers will be loaded from project .mcp.json via settingSources', {
+        fixedDirectory: config.workingDirectory.fixed,
+      });
+    }
 
     // Add permission prompt server if we have Slack context and bypass is not enabled
     if (slackContext && !userBypass) {
@@ -315,10 +330,11 @@ export class ClaudeHandler {
     } else if (mcpServers && Object.keys(mcpServers).length > 0) {
       options.mcpServers = mcpServers;
     }
-    
+
     if (options.mcpServers && Object.keys(options.mcpServers).length > 0) {
       // Allow all MCP tools by default, plus permission prompt tool if not bypassed
-      const defaultMcpTools = this.mcpManager.getDefaultAllowedTools();
+      // In fixed mode, defaultMcpTools will be empty since McpManager wasn't used
+      const defaultMcpTools = isFixedMode ? [] : this.mcpManager.getDefaultAllowedTools();
       if (slackContext && !userBypass) {
         defaultMcpTools.push('mcp__permission-prompt__permission_prompt');
       }
@@ -333,6 +349,7 @@ export class ClaudeHandler {
         hasSlackContext: !!slackContext,
         userBypass,
         permissionMode: options.permissionMode,
+        isFixedMode,
       });
     }
 

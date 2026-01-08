@@ -109,6 +109,16 @@ export class SlackHandler {
     // Check if this is a working directory command (only if there's text)
     const setDirPath = text ? this.workingDirManager.parseSetCommand(text) : null;
     if (setDirPath) {
+      // Check if working directory is fixed by configuration
+      if (this.workingDirManager.isFixedMode()) {
+        const fixedPath = this.workingDirManager.getFixedDirectory();
+        await say({
+          text: `⚠️ Working directory is fixed to: \`${fixedPath}\`\nThis cannot be changed via Slack commands.`,
+          thread_ts: thread_ts || ts,
+        });
+        return;
+      }
+
       const isDM = channel.startsWith('D');
       // Always pass userId to save user's default directory
       const result = this.workingDirManager.setWorkingDirectory(
@@ -144,8 +154,15 @@ export class SlackHandler {
       );
       const context = thread_ts ? 'this thread' : (isDM ? 'this conversation' : 'this channel');
 
+      let message = this.workingDirManager.formatDirectoryMessage(directory, context);
+
+      // Add fixed mode notice if applicable
+      if (this.workingDirManager.isFixedMode()) {
+        message += `\n\n_Note: Working directory is fixed by configuration and cannot be changed._`;
+      }
+
       await say({
-        text: this.workingDirManager.formatDirectoryMessage(directory, context),
+        text: message,
         thread_ts: thread_ts || ts,
       });
       return;
