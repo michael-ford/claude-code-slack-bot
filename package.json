@@ -6,7 +6,8 @@
   "scripts": {
     "start": "tsx src/index.ts",
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
+    "build": "tsc && npm run copy-prompts",
+    "copy-prompts": "mkdir -p dist/prompts && cp src/prompts/*.md dist/prompts/",
     "prod": "node dist/index.js",
     "test": "vitest run",
     "test:watch": "vitest",

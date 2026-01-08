@@ -8,6 +8,7 @@ import { sendCredentialAlert } from './credential-alert';
 import { config } from './config';
 import * as path from 'path';
 import * as fs from 'fs';
+import { loadSlackFormattingPrompt } from './prompts/slack-formatting';
 
 // Session persistence file path
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -184,6 +185,12 @@ export class ClaudeHandler {
       // This enables access to .claude/skills/, .claude/agents/, and .mcp.json in the cwd
       settingSources: ['project'],
     };
+
+    // Load and inject Slack formatting prompt (BEFORE CLAUDE.md so persona can override)
+    const slackFormattingPrompt = loadSlackFormattingPrompt();
+    if (slackFormattingPrompt) {
+      options.customSystemPrompt = slackFormattingPrompt;
+    }
 
     // Set model from session or user's default model
     if (session?.model) {
