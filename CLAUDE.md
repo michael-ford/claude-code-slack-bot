@@ -29,17 +29,6 @@ Slack에서 Claude Code SDK를 통해 AI 코딩 어시스턴트를 제공하는 
 | `src/stderr-logger.ts` | MCP용 stderr 로거 |
 | `src/types.ts` | 타입 정의 |
 
-### Prompt & Persona System
-```
-src/prompt/
-├── system.prompt      # 시스템 프롬프트 (역할, 워크플로우 정의)
-└── review_prompt.md   # PR 리뷰 가이드라인
-
-src/persona/
-├── default.md         # 기본 페르소나
-└── chaechae.md        # 커스텀 페르소나
-```
-
 ### Data Files
 ```
 data/
@@ -156,8 +145,6 @@ npm run prod     # 프로덕션 (빌드 필요)
 ### Project Structure
 ```
 src/                    # 소스 코드
-├── prompt/             # 시스템 프롬프트
-├── persona/            # 봇 페르소나
 scripts/                # 유틸리티 스크립트
 data/                   # 런타임 데이터 (auto-generated)
 logs/                   # 로그 파일

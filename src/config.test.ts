@@ -4,14 +4,26 @@ import fs from 'fs';
 // Mock fs module
 vi.mock('fs');
 
+// Mock dotenv to prevent loading .env file during tests
+vi.mock('dotenv', () => ({
+  default: {
+    config: vi.fn(),
+  },
+  config: vi.fn(),
+}));
+
 describe('config', () => {
   const originalEnv = process.env;
 
   beforeEach(() => {
     // Reset module cache to get fresh config each test
     vi.resetModules();
-    // Create a fresh copy of env
-    process.env = { ...originalEnv };
+    // Create a fresh copy of env WITHOUT any values from .env file
+    process.env = {
+      PATH: originalEnv.PATH,
+      HOME: originalEnv.HOME,
+      NODE_ENV: originalEnv.NODE_ENV,
+    };
     // Reset all mocks
     vi.resetAllMocks();
   });
@@ -89,6 +101,20 @@ describe('config', () => {
         // fs.existsSync should not be called for fixed directory validation
         expect(fs.existsSync).not.toHaveBeenCalled();
       });
+    });
+  });
+
+  describe('model.default', () => {
+    it('should fallback to sonnet when DEFAULT_MODEL not set', async () => {
+      delete process.env.DEFAULT_MODEL;
+      const { config } = await import('./config');
+      expect(config.model.default).toBe('claude-sonnet-4-5-20250929');
+    });
+
+    it('should use environment variable when DEFAULT_MODEL is set', async () => {
+      process.env.DEFAULT_MODEL = 'claude-opus-4-5-20251101';
+      const { config } = await import('./config');
+      expect(config.model.default).toBe('claude-opus-4-5-20251101');
     });
   });
 });

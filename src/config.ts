@@ -34,6 +34,9 @@ export const config = {
   verbosity: {
     default: (process.env.DEFAULT_VERBOSITY as 'minimal' | 'filtered' | 'verbose') || 'minimal',
   },
+  model: {
+    default: process.env.DEFAULT_MODEL || 'claude-sonnet-4-5-20250929',
+  },
   debug: process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development',
 };
 

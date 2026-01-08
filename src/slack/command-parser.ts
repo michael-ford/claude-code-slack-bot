@@ -3,7 +3,6 @@
  */
 
 export type BypassAction = 'on' | 'off' | 'status';
-export type PersonaAction = { action: 'list' | 'status' | 'set'; persona?: string };
 export type ModelAction = { action: 'list' | 'status' | 'set'; model?: string };
 export type VerbosityAction = { action: 'status' | 'set'; level?: 'minimal' | 'filtered' | 'verbose' };
 
@@ -45,31 +44,6 @@ export class CommandParser {
       return 'off';
     }
     return 'status';
-  }
-
-  /**
-   * Check if text is a persona command
-   */
-  static isPersonaCommand(text: string): boolean {
-    return /^\/?persona(?:\s+(?:list|status|set\s+\S+))?$/i.test(text.trim());
-  }
-
-  /**
-   * Parse persona command
-   */
-  static parsePersonaCommand(text: string): PersonaAction {
-    const trimmed = text.trim();
-
-    if (/^\/?persona\s+list$/i.test(trimmed)) {
-      return { action: 'list' };
-    }
-
-    const setMatch = trimmed.match(/^\/?persona\s+set\s+(\S+)$/i);
-    if (setMatch) {
-      return { action: 'set', persona: setMatch[1] };
-    }
-
-    return { action: 'status' };
   }
 
   /**
@@ -180,11 +154,6 @@ export class CommandParser {
       '• `bypass` or `/bypass` - Show permission bypass status',
       '• `bypass on` or `/bypass on` - Enable permission bypass',
       '• `bypass off` or `/bypass off` - Disable permission bypass',
-      '',
-      '*Persona:*',
-      '• `persona` or `/persona` - Show current persona',
-      '• `persona list` or `/persona list` - List available personas',
-      '• `persona set <name>` or `/persona set <name>` - Set persona',
       '',
       '*Model:*',
       '• `model` or `/model` - Show current default model',

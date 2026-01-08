@@ -147,50 +147,6 @@ describe('CommandParser', () => {
     });
   });
 
-  describe('isPersonaCommand', () => {
-    it('should match "persona"', () => {
-      expect(CommandParser.isPersonaCommand('persona')).toBe(true);
-    });
-
-    it('should match "/persona"', () => {
-      expect(CommandParser.isPersonaCommand('/persona')).toBe(true);
-    });
-
-    it('should match "persona list"', () => {
-      expect(CommandParser.isPersonaCommand('persona list')).toBe(true);
-    });
-
-    it('should match "persona status"', () => {
-      expect(CommandParser.isPersonaCommand('persona status')).toBe(true);
-    });
-
-    it('should match "persona set default"', () => {
-      expect(CommandParser.isPersonaCommand('persona set default')).toBe(true);
-    });
-
-    it('should not match unrelated text', () => {
-      expect(CommandParser.isPersonaCommand('set persona default')).toBe(false);
-    });
-  });
-
-  describe('parsePersonaCommand', () => {
-    it('should return status for "persona"', () => {
-      expect(CommandParser.parsePersonaCommand('persona')).toEqual({ action: 'status' });
-    });
-
-    it('should return list for "persona list"', () => {
-      expect(CommandParser.parsePersonaCommand('persona list')).toEqual({ action: 'list' });
-    });
-
-    it('should return set with persona for "persona set default"', () => {
-      expect(CommandParser.parsePersonaCommand('persona set default')).toEqual({ action: 'set', persona: 'default' });
-    });
-
-    it('should return set with persona for "persona set chaechae"', () => {
-      expect(CommandParser.parsePersonaCommand('persona set chaechae')).toEqual({ action: 'set', persona: 'chaechae' });
-    });
-  });
-
   describe('isModelCommand', () => {
     it('should match "model"', () => {
       expect(CommandParser.isModelCommand('model')).toBe(true);
@@ -408,7 +364,6 @@ describe('CommandParser', () => {
       expect(help).toContain('Sessions');
       expect(help).toContain('MCP Servers');
       expect(help).toContain('Permissions');
-      expect(help).toContain('Persona');
       expect(help).toContain('Model');
       expect(help).toContain('Verbosity');
       expect(help).toContain('Credentials');

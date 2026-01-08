@@ -24,7 +24,22 @@ export const MODEL_ALIASES: Record<string, ModelId> = {
   'haiku-4.5': 'claude-haiku-4-5-20251001',
 };
 
-export const DEFAULT_MODEL: ModelId = 'claude-sonnet-4-5-20250929';
+// Get default model from config (environment variable) or fallback to sonnet
+export function getDefaultModel(): ModelId {
+  const configModel = config.model.default;
+  const normalizedModel = configModel.toLowerCase().trim();
+
+  // Check if it's a valid model ID (after normalization)
+  if (AVAILABLE_MODELS.includes(normalizedModel as ModelId)) {
+    return normalizedModel as ModelId;
+  }
+  // Check if it's an alias
+  if (MODEL_ALIASES[normalizedModel]) {
+    return MODEL_ALIASES[normalizedModel];
+  }
+  // Fallback to sonnet
+  return 'claude-sonnet-4-5-20250929';
+}
 
 // Verbosity levels
 export const VERBOSITY_LEVELS = ['minimal', 'filtered', 'verbose'] as const;
@@ -32,14 +47,21 @@ export type VerbosityLevel = typeof VERBOSITY_LEVELS[number];
 
 // Get default verbosity from config (environment variable) or fallback to 'minimal'
 export function getDefaultVerbosity(): VerbosityLevel {
-  return config.verbosity.default;
+  const configVerbosity = config.verbosity.default;
+  const normalized = configVerbosity.toLowerCase().trim();
+
+  // Check if it's a valid verbosity level
+  if (VERBOSITY_LEVELS.includes(normalized as VerbosityLevel)) {
+    return normalized as VerbosityLevel;
+  }
+  // Fallback to minimal
+  return 'minimal';
 }
 
 export interface UserSettings {
   userId: string;
   defaultDirectory: string;
   bypassPermission: boolean;
-  persona: string;  // persona file name (without .md extension)
   defaultModel: ModelId;  // default model for new sessions
   verbosityLevel: VerbosityLevel;  // tool output verbosity
   lastUpdated: string;
@@ -175,8 +197,7 @@ export class UserSettingsStore {
         userId,
         defaultDirectory: existing?.defaultDirectory ?? '',
         bypassPermission: existing?.bypassPermission ?? false,
-        persona: existing?.persona ?? 'default',
-        defaultModel: existing?.defaultModel ?? DEFAULT_MODEL,
+        defaultModel: existing?.defaultModel ?? getDefaultModel(),
         verbosityLevel: existing?.verbosityLevel ?? getDefaultVerbosity(),
         lastUpdated: new Date().toISOString(),
         jiraAccountId: mapping.jiraAccountId,
@@ -234,8 +255,7 @@ export class UserSettingsStore {
       userId,
       defaultDirectory: directory,
       bypassPermission: existing?.bypassPermission ?? false,
-      persona: existing?.persona ?? 'default',
-      defaultModel: existing?.defaultModel ?? DEFAULT_MODEL,
+      defaultModel: existing?.defaultModel ?? getDefaultModel(),
       verbosityLevel: existing?.verbosityLevel ?? getDefaultVerbosity(),
       lastUpdated: new Date().toISOString(),
     };
@@ -263,8 +283,7 @@ export class UserSettingsStore {
         userId,
         defaultDirectory: '',
         bypassPermission: bypass,
-        persona: 'default',
-        defaultModel: DEFAULT_MODEL,
+        defaultModel: getDefaultModel(),
         verbosityLevel: getDefaultVerbosity(),
         lastUpdated: new Date().toISOString(),
       };
@@ -274,41 +293,11 @@ export class UserSettingsStore {
   }
 
   /**
-   * Get user's persona setting
-   */
-  getUserPersona(userId: string): string {
-    const userSettings = this.settings[userId];
-    return userSettings?.persona ?? 'default';
-  }
-
-  /**
-   * Set user's persona setting
-   */
-  setUserPersona(userId: string, persona: string): void {
-    if (this.settings[userId]) {
-      this.settings[userId].persona = persona;
-      this.settings[userId].lastUpdated = new Date().toISOString();
-    } else {
-      this.settings[userId] = {
-        userId,
-        defaultDirectory: '',
-        bypassPermission: false,
-        persona,
-        defaultModel: DEFAULT_MODEL,
-        verbosityLevel: getDefaultVerbosity(),
-        lastUpdated: new Date().toISOString(),
-      };
-    }
-    this.saveSettings();
-    logger.info('Set user persona', { userId, persona });
-  }
-
-  /**
    * Get user's default model
    */
   getUserDefaultModel(userId: string): ModelId {
     const userSettings = this.settings[userId];
-    return userSettings?.defaultModel ?? DEFAULT_MODEL;
+    return userSettings?.defaultModel ?? getDefaultModel();
   }
 
   /**
@@ -323,7 +312,6 @@ export class UserSettingsStore {
         userId,
         defaultDirectory: '',
         bypassPermission: false,
-        persona: 'default',
         defaultModel: model,
         verbosityLevel: getDefaultVerbosity(),
         lastUpdated: new Date().toISOString(),
@@ -428,8 +416,7 @@ export class UserSettingsStore {
         userId,
         defaultDirectory: '',
         bypassPermission: false,
-        persona: 'default',
-        defaultModel: DEFAULT_MODEL,
+        defaultModel: getDefaultModel(),
         verbosityLevel: level,
         lastUpdated: new Date().toISOString(),
       };

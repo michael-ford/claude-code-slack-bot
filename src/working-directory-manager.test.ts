@@ -22,53 +22,62 @@ vi.mock('./logger', () => ({
   },
 }));
 
-describe('WorkingDirectoryManager', () => {
-  const originalEnv = process.env;
+// Mock config module - will be configured per test
+const mockConfig = {
+  workingDirectory: { fixed: '' },
+  baseDirectory: '',
+};
+vi.mock('./config', () => ({
+  config: mockConfig,
+}));
 
+describe('WorkingDirectoryManager', () => {
   beforeEach(() => {
     vi.resetModules();
-    process.env = { ...originalEnv };
+    // Reset mock config to defaults
+    mockConfig.workingDirectory.fixed = '';
+    mockConfig.baseDirectory = '';
     // Default mock implementations
     vi.mocked(fs.existsSync).mockReturnValue(true);
     vi.mocked(fs.statSync).mockReturnValue({ isDirectory: () => true } as fs.Stats);
   });
 
   afterEach(() => {
-    process.env = originalEnv;
     vi.resetAllMocks();
   });
 
   describe('fixed mode', () => {
+    beforeEach(() => {
+      mockConfig.workingDirectory.fixed = '/fixed/path';
+    });
+
     it('isFixedMode() returns true when FIXED_WORKING_DIRECTORY is set', async () => {
-      process.env.FIXED_WORKING_DIRECTORY = '/fixed/path';
       const { WorkingDirectoryManager } = await import('./working-directory-manager');
       const manager = new WorkingDirectoryManager();
       expect(manager.isFixedMode()).toBe(true);
     });
 
     it('isFixedMode() returns false when FIXED_WORKING_DIRECTORY is not set', async () => {
-      delete process.env.FIXED_WORKING_DIRECTORY;
+      mockConfig.workingDirectory.fixed = '';
       const { WorkingDirectoryManager } = await import('./working-directory-manager');
       const manager = new WorkingDirectoryManager();
       expect(manager.isFixedMode()).toBe(false);
     });
 
     it('getFixedDirectory() returns the fixed path', async () => {
-      process.env.FIXED_WORKING_DIRECTORY = '/fixed/path';
       const { WorkingDirectoryManager } = await import('./working-directory-manager');
       const manager = new WorkingDirectoryManager();
       expect(manager.getFixedDirectory()).toBe('/fixed/path');
     });
 
     it('getFixedDirectory() returns undefined when not in fixed mode', async () => {
-      delete process.env.FIXED_WORKING_DIRECTORY;
+      mockConfig.workingDirectory.fixed = '';
       const { WorkingDirectoryManager } = await import('./working-directory-manager');
       const manager = new WorkingDirectoryManager();
       expect(manager.getFixedDirectory()).toBeUndefined();
     });
 
     it('getWorkingDirectory() returns fixed path in fixed mode regardless of channel/thread', async () => {
-      process.env.FIXED_WORKING_DIRECTORY = '/fixed/path';
       const { WorkingDirectoryManager } = await import('./working-directory-manager');
       const manager = new WorkingDirectoryManager();
 
@@ -79,7 +88,6 @@ describe('WorkingDirectoryManager', () => {
     });
 
     it('setWorkingDirectory() returns error in fixed mode', async () => {
-      process.env.FIXED_WORKING_DIRECTORY = '/fixed/path';
       const { WorkingDirectoryManager } = await import('./working-directory-manager');
       const manager = new WorkingDirectoryManager();
 
@@ -90,7 +98,6 @@ describe('WorkingDirectoryManager', () => {
     });
 
     it('setWorkingDirectory() returns error in fixed mode even for threads', async () => {
-      process.env.FIXED_WORKING_DIRECTORY = '/fixed/path';
       const { WorkingDirectoryManager } = await import('./working-directory-manager');
       const manager = new WorkingDirectoryManager();
 
@@ -103,7 +110,7 @@ describe('WorkingDirectoryManager', () => {
 
   describe('normal mode', () => {
     beforeEach(() => {
-      delete process.env.FIXED_WORKING_DIRECTORY;
+      mockConfig.workingDirectory.fixed = '';
     });
 
     it('setWorkingDirectory() works normally', async () => {
