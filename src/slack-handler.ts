@@ -14,6 +14,7 @@ import { getCredentialStatus, copyBackupCredentials, hasClaudeAiOauth, isCredent
 import { mcpCallTracker, McpCallTracker } from './mcp-call-tracker';
 import { CommandParser, ToolFormatter, UserChoiceHandler, MessageFormatter } from './slack';
 import { shouldShowToolResult, reloadToolFilter } from './tool-filter';
+import { getChannelProjectContext } from './channel-project-context';
 
 interface MessageEvent {
   user: string;
@@ -463,6 +464,12 @@ export class SlackHandler {
       const userInfo = this.getUserInfoContext(user);
       if (userInfo) {
         finalPrompt = `${finalPrompt}\n\n${userInfo}`;
+      }
+
+      // Inject channel-based project context if available
+      const channelProjectContext = getChannelProjectContext(channel, workingDirectory);
+      if (channelProjectContext) {
+        finalPrompt = `${finalPrompt}\n\n${channelProjectContext}`;
       }
 
       this.logger.info('Sending query to Claude Code SDK', {
