@@ -11,8 +11,10 @@ SERVICE_NAME="com.dd.claude-slack-bot"
 # Use system-level LaunchDaemons for boot-time execution (no login required)
 PLIST_PATH="/Library/LaunchDaemons/$SERVICE_NAME.plist"
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# Use FIXED_WORKING_DIRECTORY if set, otherwise derive from PROJECT_DIR parent
+PM_ASSISTANT_DIR="${FIXED_WORKING_DIRECTORY:-$(dirname "$PROJECT_DIR")}"
 LOGS_DIR="$PROJECT_DIR/logs"
-NODE_PATH="$HOME/.nvm/versions/node/v25.2.1/bin"
+NODE_PATH="/opt/homebrew/bin"
 USER_HOME="$HOME"
 
 # Colors for output
@@ -190,6 +192,8 @@ cmd_install() {
         <string>$NODE_PATH:/usr/local/bin:/usr/bin:/bin</string>
         <key>HOME</key>
         <string>$USER_HOME</string>
+        <key>FIXED_WORKING_DIRECTORY</key>
+        <string>$PM_ASSISTANT_DIR</string>
     </dict>
 
     <key>RunAtLoad</key>
@@ -211,6 +215,7 @@ cmd_install() {
 EOF
 
     print_success "Plist created at: $PLIST_PATH"
+    print_status "FIXED_WORKING_DIRECTORY set to: $PM_ASSISTANT_DIR"
 
     # Load the service
     sudo launchctl load "$PLIST_PATH"
@@ -343,6 +348,8 @@ cmd_reinstall() {
         <string>$NODE_PATH:/usr/local/bin:/usr/bin:/bin</string>
         <key>HOME</key>
         <string>$USER_HOME</string>
+        <key>FIXED_WORKING_DIRECTORY</key>
+        <string>$PM_ASSISTANT_DIR</string>
     </dict>
 
     <key>RunAtLoad</key>
@@ -363,6 +370,7 @@ cmd_reinstall() {
 </plist>
 EOF
     print_success "Service configuration updated"
+    print_status "FIXED_WORKING_DIRECTORY set to: $PM_ASSISTANT_DIR"
 
     # Step 4: Start service
     print_status "[4/4] Starting service..."

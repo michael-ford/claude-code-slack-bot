@@ -181,9 +181,14 @@ export class ClaudeHandler {
       outputFormat: 'stream-json',
       // Enable permission prompts when we have Slack context, unless user has bypass enabled
       permissionMode: (!slackContext || userBypass) ? 'bypassPermissions' : 'default',
-      // Load project settings (skills, agents, MCP servers) from the working directory
-      // This enables access to .claude/skills/, .claude/agents/, and .mcp.json in the cwd
-      settingSources: ['project'],
+      // Load project AND user settings
+      // 'user' loads ~/.claude/settings.json which may include auth configuration
+      // 'project' loads .claude/skills/, .claude/agents/, and .mcp.json in the cwd
+      settingSources: ['user', 'project'],
+      // Capture stderr to see Claude errors
+      stderr: (data: string) => {
+        this.logger.debug('Claude stderr', { stderr: data });
+      },
     };
 
     // Load and inject Slack formatting prompt (BEFORE CLAUDE.md so persona can override)
@@ -223,17 +228,36 @@ export class ClaudeHandler {
     }
 
     // Check if we're in fixed mode (FIXED_WORKING_DIRECTORY is set)
-    // In fixed mode: Don't pass mcpServers from McpManager - SDK will load from .mcp.json via settingSources
+    // In fixed mode: Load MCP servers from project's .mcp.json and merge with permission server
     // In normal mode: Use McpManager to provide bot-level MCP servers
     const isFixedMode = !!config.workingDirectory.fixed;
 
-    // Get MCP servers from McpManager only in normal mode
-    const mcpServers = isFixedMode ? null : await this.mcpManager.getServerConfiguration();
+    // Get MCP servers - either from project .mcp.json (fixed mode) or McpManager (normal mode)
+    let mcpServers: Record<string, any> | null = null;
 
     if (isFixedMode) {
-      this.logger.debug('Fixed mode: MCP servers will be loaded from project .mcp.json via settingSources', {
-        fixedDirectory: config.workingDirectory.fixed,
-      });
+      // In fixed mode, read .mcp.json from the fixed working directory
+      const mcpJsonPath = path.join(config.workingDirectory.fixed, '.mcp.json');
+      try {
+        if (fs.existsSync(mcpJsonPath)) {
+          const mcpConfig = JSON.parse(fs.readFileSync(mcpJsonPath, 'utf-8'));
+          mcpServers = mcpConfig.mcpServers || null;
+          this.logger.debug('Fixed mode: Loaded MCP servers from project .mcp.json', {
+            fixedDirectory: config.workingDirectory.fixed,
+            serverCount: mcpServers ? Object.keys(mcpServers).length : 0,
+            servers: mcpServers ? Object.keys(mcpServers) : [],
+          });
+        } else {
+          this.logger.debug('Fixed mode: No .mcp.json found in project directory', {
+            fixedDirectory: config.workingDirectory.fixed,
+            mcpJsonPath,
+          });
+        }
+      } catch (error) {
+        this.logger.error('Fixed mode: Failed to read .mcp.json', { error, mcpJsonPath });
+      }
+    } else {
+      mcpServers = await this.mcpManager.getServerConfiguration() || null;
     }
 
     // Add permission prompt server if we have Slack context and bypass is not enabled
