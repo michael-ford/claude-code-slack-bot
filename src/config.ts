@@ -3,6 +3,10 @@ import * as fs from 'fs';
 
 dotenv.config();
 
+// Debug: Log loaded config values
+console.log(`[Config] DEFAULT_MODEL from env: ${process.env.DEFAULT_MODEL || '(not set, using default)'}`);
+console.log(`[Config] FIXED_WORKING_DIRECTORY: ${process.env.FIXED_WORKING_DIRECTORY || '(not set)'}`);
+
 export const config = {
   slack: {
     botToken: process.env.SLACK_BOT_TOKEN!,
