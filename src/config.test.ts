@@ -117,4 +117,77 @@ describe('config', () => {
       expect(config.model.default).toBe('claude-opus-4-5-20251101');
     });
   });
+
+  describe('validateWeeklySyncConfig', () => {
+    beforeEach(() => {
+      // Set required Slack env vars so main validateConfig doesn't fail
+      process.env.SLACK_BOT_TOKEN = 'xoxb-test';
+      process.env.SLACK_APP_TOKEN = 'xapp-test';
+      process.env.SLACK_SIGNING_SECRET = 'test-secret';
+
+      // Set valid weekly sync defaults
+      process.env.WEEKLY_SYNC_ADMINS = 'U0123ADMIN';
+      process.env.AIRTABLE_TOKEN = 'keyTestToken123';
+      process.env.AIRTABLE_BASE_ID = 'appTestBase123';
+      process.env.WEEKLY_SYNC_TIMEZONE = 'America/Los_Angeles';
+    });
+
+    it('returns warnings when WEEKLY_SYNC_ADMINS is empty', async () => {
+      delete process.env.WEEKLY_SYNC_ADMINS;
+
+      const { validateWeeklySyncConfig } = await import('./config');
+      const result = validateWeeklySyncConfig();
+
+      expect(result.warnings).toContain(
+        'WEEKLY_SYNC_ADMINS not configured - no manual trigger access'
+      );
+    });
+
+    it('returns warnings when AIRTABLE_TOKEN is missing with "will not function" message', async () => {
+      delete process.env.AIRTABLE_TOKEN;
+
+      const { validateWeeklySyncConfig } = await import('./config');
+      const result = validateWeeklySyncConfig();
+
+      expect(result.warnings.some((w) => w.includes('AIRTABLE_TOKEN'))).toBe(true);
+      expect(result.warnings.some((w) => w.includes('will not function'))).toBe(true);
+    });
+
+    it('returns warnings when AIRTABLE_BASE_ID is missing', async () => {
+      delete process.env.AIRTABLE_BASE_ID;
+
+      const { validateWeeklySyncConfig } = await import('./config');
+      const result = validateWeeklySyncConfig();
+
+      expect(result.warnings.some((w) => w.includes('AIRTABLE_BASE_ID'))).toBe(true);
+      expect(result.warnings.some((w) => w.includes('will not function'))).toBe(true);
+    });
+
+    it('returns warnings for invalid timezone', async () => {
+      process.env.WEEKLY_SYNC_TIMEZONE = 'Invalid/Timezone';
+
+      const { validateWeeklySyncConfig } = await import('./config');
+      const result = validateWeeklySyncConfig();
+
+      expect(result.warnings.some((w) => w.includes('Invalid timezone'))).toBe(true);
+    });
+
+    it('returns valid: true when critical settings are present', async () => {
+      // All required settings are set in beforeEach
+
+      const { validateWeeklySyncConfig } = await import('./config');
+      const result = validateWeeklySyncConfig();
+
+      expect(result.valid).toBe(true);
+    });
+
+    it('returns valid: false when AIRTABLE_TOKEN is missing', async () => {
+      delete process.env.AIRTABLE_TOKEN;
+
+      const { validateWeeklySyncConfig } = await import('./config');
+      const result = validateWeeklySyncConfig();
+
+      expect(result.valid).toBe(false);
+    });
+  });
 });
