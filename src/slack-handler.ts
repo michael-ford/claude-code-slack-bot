@@ -15,6 +15,7 @@ import { mcpCallTracker, McpCallTracker } from './mcp-call-tracker';
 import { CommandParser, ToolFormatter, UserChoiceHandler, MessageFormatter } from './slack';
 import { shouldShowToolResult, reloadToolFilter } from './tool-filter';
 import { getChannelProjectContext } from './channel-project-context';
+import { WeeklySyncCommands } from './weekly-sync/admin-commands';
 
 interface MessageEvent {
   user: string;
@@ -122,6 +123,12 @@ export class SlackHandler {
           // TODO: Inject context.skill into Claude session customSystemPrompt
         }
       }
+    }
+
+    // Check for weekly-sync admin commands EARLY (before other processing)
+    if (text && WeeklySyncCommands.isWeeklySyncCommand(text)) {
+      await this.handleWeeklySyncCommand(text, user, channel, thread_ts, ts, say);
+      return;
     }
 
     // Process any attached files
@@ -1101,6 +1108,112 @@ export class SlackHandler {
     lines.push('</user-context>');
 
     return lines.join('\n');
+  }
+
+  /**
+   * Handle weekly-sync admin commands.
+   * Checks permission and routes to appropriate action handler.
+   */
+  private async handleWeeklySyncCommand(
+    text: string,
+    userId: string,
+    channel: string,
+    threadTs: string | undefined,
+    ts: string,
+    say: any
+  ): Promise<void> {
+    try {
+      const replyTs = threadTs || ts;
+
+      // Check permission - user must be in config.weeklySync.admins
+      const isAdmin = config.weeklySync.admins.includes(userId);
+      if (!isAdmin) {
+        await say({
+          text: `Permission denied: You are not authorized to use weekly-sync commands.`,
+          thread_ts: replyTs,
+        });
+        return;
+      }
+
+      // Parse the command
+      const action = WeeklySyncCommands.parseWeeklySyncCommand(text);
+
+      // Handle each action type
+      switch (action.action) {
+        case 'status':
+          // TODO: Implement status check in Phase 2 - show active syncs, last run time, etc.
+          await say({
+            text: `Weekly Sync Status: System is ready.`,
+            thread_ts: replyTs,
+          });
+          break;
+
+        case 'start':
+          // TODO: Implement start logic in Phase 2 - fetch participants, generate messages, send DMs
+          if (action.dryRun) {
+            await say({
+              text: `Weekly Sync: Starting dry run...`,
+              thread_ts: replyTs,
+            });
+          } else {
+            await say({
+              text: `Weekly Sync: Starting...`,
+              thread_ts: replyTs,
+            });
+          }
+          break;
+
+        case 'test':
+          // Validate user ID format
+          if (action.targetUserId && !/^U[A-Z0-9]+$/i.test(action.targetUserId)) {
+            await say({
+              text: `Invalid user ID format: ${action.targetUserId}. Expected format: U followed by alphanumeric characters.`,
+              thread_ts: replyTs,
+            });
+            return;
+          }
+          // TODO: Implement test logic in Phase 2 - send test sync to specified user
+          await say({
+            text: `Weekly Sync: Testing for user <@${action.targetUserId}>...`,
+            thread_ts: replyTs,
+          });
+          break;
+
+        case 'summary':
+          // TODO: Implement summary generation in Phase 3 - aggregate responses and generate report
+          if (action.projectName) {
+            await say({
+              text: `Weekly Sync Summary: Generating for project "${action.projectName}"...`,
+              thread_ts: replyTs,
+            });
+          } else {
+            await say({
+              text: `Weekly Sync Summary: Generating...`,
+              thread_ts: replyTs,
+            });
+          }
+          break;
+
+        case 'help':
+        default:
+          await say({
+            text: `Weekly Sync Commands:\n\n• \`weekly-sync status\` - Show system status\n• \`weekly-sync start\` - Start weekly sync process\n• \`weekly-sync start --dry-run\` - Preview without sending\n• \`weekly-sync test <@user>\` - Test sync for a specific user\n• \`weekly-sync summary [project]\` - Generate summary\n\nUsage: You can also use \`wsync\` as a shorthand.`,
+            thread_ts: replyTs,
+          });
+          break;
+      }
+    } catch (error) {
+      console.error('Error handling weekly-sync command:', error);
+      try {
+        const replyTs = threadTs || ts;
+        await say({
+          text: `An error occurred while processing the weekly-sync command. Please try again or contact support.`,
+          thread_ts: replyTs,
+        });
+      } catch (sayError) {
+        console.error('Failed to send error notification:', sayError);
+      }
+    }
   }
 
   private async handleTerminateCommand(
