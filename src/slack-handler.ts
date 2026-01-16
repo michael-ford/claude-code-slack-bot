@@ -33,6 +33,28 @@ interface MessageEvent {
   }>;
 }
 
+/**
+ * Interface for CollectionManager dependency injection.
+ * The actual CollectionManager is defined in weekly-sync/collection-manager.ts.
+ */
+interface CollectionManagerLike {
+  isCollectionThread(channelId: string, threadTs: string): Promise<boolean>;
+  getCollectionContext(channelId: string, threadTs: string): Promise<{
+    skill: string;
+    personId: string;
+    personName: string;
+    weekStart: string;
+    projects: Array<{ id: string; name: string }>;
+  } | null>;
+}
+
+/**
+ * Optional dependencies for SlackHandler.
+ */
+interface SlackHandlerOptions {
+  collectionManager?: CollectionManagerLike;
+}
+
 export class SlackHandler {
   private app: App;
   private claudeHandler: ClaudeHandler;
@@ -65,14 +87,17 @@ export class SlackHandler {
     selections: Record<string, { choiceId: string; label: string }>;
     createdAt: number;
   }> = new Map();
+  // CollectionManager for weekly sync collection threads
+  private collectionManager: CollectionManagerLike | undefined;
 
-  constructor(app: App, claudeHandler: ClaudeHandler, mcpManager: McpManager) {
+  constructor(app: App, claudeHandler: ClaudeHandler, mcpManager: McpManager, options?: SlackHandlerOptions) {
     this.app = app;
     this.claudeHandler = claudeHandler;
     this.mcpManager = mcpManager;
     this.workingDirManager = new WorkingDirectoryManager();
     this.fileHandler = new FileHandler();
     this.todoManager = new TodoManager();
+    this.collectionManager = options?.collectionManager;
   }
 
   async handleMessage(event: MessageEvent, say: any) {
@@ -80,6 +105,24 @@ export class SlackHandler {
 
     // Update user's Jira info from mapping (if available)
     userSettingsStore.updateUserJiraInfo(user);
+
+    // Check for collection thread EARLY (before other processing)
+    if (thread_ts && this.collectionManager) {
+      const isCollection = await this.isCollectionThread(channel, thread_ts);
+      if (isCollection) {
+        const context = await this.getCollectionContext(channel, thread_ts);
+        if (context) {
+          // Log detection for now - full skill injection will be added later
+          this.logger.debug('Collection thread detected', {
+            channel,
+            thread_ts,
+            skill: context.skill,
+            personName: context.personName
+          });
+          // TODO: Inject context.skill into Claude session customSystemPrompt
+        }
+      }
+    }
 
     // Process any attached files
     let processedFiles: ProcessedFile[] = [];
@@ -2674,5 +2717,63 @@ export class SlackHandler {
     }
     // If no msgInfo, the call completed before status message was shown (< 10s for non-codex)
     // In this case, only the MCP result will be shown, which is the expected behavior
+  }
+
+  /**
+   * Check if a thread is a collection thread (delegates to CollectionManager).
+   *
+   * @param channelId - Slack channel ID
+   * @param threadTs - Slack thread timestamp (optional)
+   * @returns true if this is a collection thread, false otherwise
+   */
+  async isCollectionThread(channelId: string, threadTs: string | undefined): Promise<boolean> {
+    if (!threadTs) {
+      return false;
+    }
+    if (!this.collectionManager) {
+      return false;
+    }
+    try {
+      return await this.collectionManager.isCollectionThread(channelId, threadTs);
+    } catch (error) {
+      this.logger.error('Error checking if thread is collection thread', {
+        error,
+        channelId,
+        threadTs,
+      });
+      return false;
+    }
+  }
+
+  /**
+   * Get collection context for a thread (delegates to CollectionManager).
+   *
+   * @param channelId - Slack channel ID
+   * @param threadTs - Slack thread timestamp (optional)
+   * @returns Collection context if this is a collection thread, null otherwise
+   */
+  async getCollectionContext(channelId: string, threadTs: string | undefined): Promise<{
+    skill: string;
+    personId: string;
+    personName: string;
+    weekStart: string;
+    projects: Array<{ id: string; name: string }>;
+  } | null> {
+    if (!threadTs) {
+      return null;
+    }
+    if (!this.collectionManager) {
+      return null;
+    }
+    try {
+      return await this.collectionManager.getCollectionContext(channelId, threadTs);
+    } catch (error) {
+      this.logger.error('Error getting collection context', {
+        error,
+        channelId,
+        threadTs,
+      });
+      return null;
+    }
   }
 }
