@@ -482,6 +482,25 @@ describe('WeeklySyncScheduler', () => {
       tokyoScheduler.stop();
     });
 
+    it('logs next collection and summary times on start', () => {
+      scheduler.start();
+
+      // Should log startup message
+      expect(mockLog).toHaveBeenCalledWith(
+        expect.stringContaining('Weekly sync scheduler started')
+      );
+
+      // Should log next collection time
+      expect(mockLog).toHaveBeenCalledWith(
+        expect.stringContaining('Next collection:')
+      );
+
+      // Should log next summary time
+      expect(mockLog).toHaveBeenCalledWith(
+        expect.stringContaining('Next summary:')
+      );
+    });
+
     it('uses custom hours when provided', () => {
       const mockSchedule = vi.mocked(cron.schedule);
 
@@ -684,6 +703,67 @@ describe('WeeklySyncScheduler', () => {
           logger,
         });
       }).toThrow();
+    });
+
+    it('throws error if collectionHour is less than 0', () => {
+      expect(() => {
+        new scheduler.constructor({
+          collectionManager,
+          summaryGenerator,
+          timezone: 'America/Los_Angeles',
+          logger,
+          collectionHour: -1,
+        });
+      }).toThrow('Invalid collectionHour: -1. Must be 0-23');
+    });
+
+    it('throws error if collectionHour is greater than 23', () => {
+      expect(() => {
+        new scheduler.constructor({
+          collectionManager,
+          summaryGenerator,
+          timezone: 'America/Los_Angeles',
+          logger,
+          collectionHour: 24,
+        });
+      }).toThrow('Invalid collectionHour: 24. Must be 0-23');
+    });
+
+    it('throws error if summaryHour is less than 0', () => {
+      expect(() => {
+        new scheduler.constructor({
+          collectionManager,
+          summaryGenerator,
+          timezone: 'America/Los_Angeles',
+          logger,
+          summaryHour: -1,
+        });
+      }).toThrow('Invalid summaryHour: -1. Must be 0-23');
+    });
+
+    it('throws error if summaryHour is greater than 23', () => {
+      expect(() => {
+        new scheduler.constructor({
+          collectionManager,
+          summaryGenerator,
+          timezone: 'America/Los_Angeles',
+          logger,
+          summaryHour: 24,
+        });
+      }).toThrow('Invalid summaryHour: 24. Must be 0-23');
+    });
+
+    it('accepts valid collectionHour and summaryHour', () => {
+      const newScheduler = new scheduler.constructor({
+        collectionManager,
+        summaryGenerator,
+        timezone: 'America/Los_Angeles',
+        logger,
+        collectionHour: 0,
+        summaryHour: 23,
+      });
+
+      expect(newScheduler).toBeDefined();
     });
   });
 });

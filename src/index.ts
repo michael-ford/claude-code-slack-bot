@@ -1,10 +1,15 @@
 import { App } from '@slack/bolt';
-import { config, validateConfig } from './config';
+import { config, validateConfig, validateWeeklySyncConfig } from './config';
 import { ClaudeHandler } from './claude-handler';
 import { SlackHandler } from './slack-handler';
 import { McpManager } from './mcp-manager';
 import { Logger } from './logger';
 import { discoverInstallations, isGitHubAppConfigured, getGitHubAppAuth } from './github-auth.js';
+import { WeeklySyncScheduler } from './weekly-sync/scheduler';
+import { CollectionManager } from './weekly-sync/collection-manager';
+import { SummaryGenerator } from './weekly-sync/summary-generator';
+import { WeeklySyncAirtableClient } from './weekly-sync/airtable-client';
+import { ThreadTracker } from './weekly-sync/thread-tracker';
 
 const logger = new Logger('Main');
 
@@ -76,6 +81,45 @@ async function start() {
       logger.info(`Restored ${loadedSessions} sessions from previous run`);
     }
 
+    // Initialize Weekly Sync Scheduler (if config is valid)
+    let weeklySyncScheduler: WeeklySyncScheduler | null = null;
+    const weeklySyncValidation = validateWeeklySyncConfig();
+    if (weeklySyncValidation.valid) {
+      try {
+        const weeklySyncAirtableClient = new WeeklySyncAirtableClient();
+        const threadTracker = new ThreadTracker(weeklySyncAirtableClient);
+        const collectionManager = new CollectionManager({
+          airtableClient: weeklySyncAirtableClient,
+          threadTracker,
+          slackClient: app.client,
+          logger,
+        });
+        const summaryGenerator = new SummaryGenerator({
+          airtableClient: weeklySyncAirtableClient,
+          threadTracker,
+          slackClient: app.client,
+          logger,
+          workingDirectory: config.baseDirectory || process.cwd(),
+        });
+        weeklySyncScheduler = new WeeklySyncScheduler({
+          collectionManager,
+          summaryGenerator,
+          timezone: config.weeklySync.collection.timezone,
+          logger,
+          collectionHour: config.weeklySync.collection.hour,
+          summaryHour: config.weeklySync.summary.hour,
+        });
+        weeklySyncScheduler.start();
+        timing('Weekly sync scheduler started');
+      } catch (error) {
+        logger.error('Failed to initialize weekly sync scheduler:', error);
+        logger.warn('Bot is running without weekly sync functionality');
+      }
+    } else {
+      logger.warn('Weekly sync scheduler not started due to invalid configuration');
+      logger.warn('Bot is running without weekly sync functionality');
+    }
+
     // Start the app
     await app.start();
     timing('Slack socket connected');
@@ -104,6 +148,11 @@ async function start() {
       if (githubAuth) {
         githubAuth.stopAutoRefresh();
         logger.info('GitHub App auto-refresh stopped');
+      }
+
+      if (weeklySyncScheduler) {
+        weeklySyncScheduler.stop();
+        logger.info('Weekly sync scheduler stopped');
       }
 
       process.exit(0);

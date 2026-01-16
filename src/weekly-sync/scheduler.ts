@@ -159,6 +159,14 @@ export class WeeklySyncScheduler {
     this.logger = options.logger;
     this.collectionHour = options.collectionHour ?? DEFAULT_COLLECTION_HOUR;
     this.summaryHour = options.summaryHour ?? DEFAULT_SUMMARY_HOUR;
+
+    // Validate hour ranges
+    if (this.collectionHour < 0 || this.collectionHour > 23) {
+      throw new Error(`Invalid collectionHour: ${this.collectionHour}. Must be 0-23`);
+    }
+    if (this.summaryHour < 0 || this.summaryHour > 23) {
+      throw new Error(`Invalid summaryHour: ${this.summaryHour}. Must be 0-23`);
+    }
   }
 
   /**
@@ -304,8 +312,17 @@ export class WeeklySyncScheduler {
       { timezone: this.timezone }
     );
 
+    const nextCollectionTime = this.getNextCollectionTime();
+    const nextSummaryTime = this.getNextSummaryTime();
+
     this.logger.log(
       `Weekly sync scheduler started (timezone: ${this.timezone}, collection: Friday ${this.collectionHour}:00, summaries: Monday ${this.summaryHour}:00)`
+    );
+    this.logger.log(
+      `Next collection: ${nextCollectionTime.toLocaleString('en-US', { timeZone: this.timezone })}`
+    );
+    this.logger.log(
+      `Next summary: ${nextSummaryTime.toLocaleString('en-US', { timeZone: this.timezone })}`
     );
   }
 
