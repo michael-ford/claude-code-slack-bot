@@ -45,16 +45,19 @@ export const config = {
 
   /**
    * Weekly Sync Configuration
-   * Settings for the Monday morning weekly update collection system
+   * Settings for the automated weekly sync system
    */
   weeklySync: {
     /** Slack user IDs authorized to trigger manual syncs */
     admins: (process.env.WEEKLY_SYNC_ADMINS || '').split(',').filter(Boolean),
-    /** Schedule for when DMs are sent */
-    schedule: {
-      hour: parseInt(process.env.WEEKLY_SYNC_SCHEDULE_HOUR || '8', 10),
-      minute: parseInt(process.env.WEEKLY_SYNC_SCHEDULE_MINUTE || '0', 10),
+    /** Schedule for Friday collection DMs */
+    collection: {
+      hour: parseInt(process.env.WEEKLY_SYNC_COLLECTION_HOUR || '12', 10), // Friday noon
       timezone: process.env.WEEKLY_SYNC_TIMEZONE || 'America/Los_Angeles',
+    },
+    /** Schedule for Monday pre-meeting summaries */
+    summary: {
+      hour: parseInt(process.env.WEEKLY_SYNC_SUMMARY_HOUR || '10', 10), // Monday 10am
     },
     /** Cutoff time for on-time responses */
     cutoff: {
@@ -145,15 +148,16 @@ export function validateWeeklySyncConfig(): { valid: boolean; warnings: string[]
     warnings.push('WEEKLY_SYNC_ADMINS not configured - no manual trigger access');
   }
 
-  // Validate schedule hours (0-23)
-  if (weeklySync.schedule.hour < 0 || weeklySync.schedule.hour > 23) {
-    console.warn(`[Config] WARNING: WEEKLY_SYNC_SCHEDULE_HOUR (${weeklySync.schedule.hour}) is invalid - must be 0-23`);
-    warnings.push(`Invalid schedule hour: ${weeklySync.schedule.hour}`);
+  // Validate collection hour (0-23)
+  if (weeklySync.collection.hour < 0 || weeklySync.collection.hour > 23) {
+    console.warn(`[Config] WARNING: WEEKLY_SYNC_COLLECTION_HOUR (${weeklySync.collection.hour}) is invalid - must be 0-23`);
+    warnings.push(`Invalid collection hour: ${weeklySync.collection.hour}`);
   }
 
-  if (weeklySync.schedule.minute < 0 || weeklySync.schedule.minute > 59) {
-    console.warn(`[Config] WARNING: WEEKLY_SYNC_SCHEDULE_MINUTE (${weeklySync.schedule.minute}) is invalid - must be 0-59`);
-    warnings.push(`Invalid schedule minute: ${weeklySync.schedule.minute}`);
+  // Validate summary hour (0-23)
+  if (weeklySync.summary.hour < 0 || weeklySync.summary.hour > 23) {
+    console.warn(`[Config] WARNING: WEEKLY_SYNC_SUMMARY_HOUR (${weeklySync.summary.hour}) is invalid - must be 0-23`);
+    warnings.push(`Invalid summary hour: ${weeklySync.summary.hour}`);
   }
 
   // Validate cutoff hours (0-23)
@@ -167,23 +171,12 @@ export function validateWeeklySyncConfig(): { valid: boolean; warnings: string[]
     warnings.push(`Invalid cutoff minute: ${weeklySync.cutoff.minute}`);
   }
 
-  // Check if cutoff is before or same as schedule time
-  const scheduleMinutes = weeklySync.schedule.hour * 60 + weeklySync.schedule.minute;
-  const cutoffMinutes = weeklySync.cutoff.hour * 60 + weeklySync.cutoff.minute;
-  if (cutoffMinutes <= scheduleMinutes) {
-    console.warn(
-      `[Config] WARNING: Cutoff time (${weeklySync.cutoff.hour}:${String(weeklySync.cutoff.minute).padStart(2, '0')}) ` +
-        `is not after schedule time (${weeklySync.schedule.hour}:${String(weeklySync.schedule.minute).padStart(2, '0')})`
-    );
-    warnings.push('Cutoff time must be after schedule time');
-  }
-
   // Validate timezone is valid
   try {
-    new Intl.DateTimeFormat('en-US', { timeZone: weeklySync.schedule.timezone });
+    new Intl.DateTimeFormat('en-US', { timeZone: weeklySync.collection.timezone });
   } catch {
-    console.warn(`[Config] WARNING: Invalid timezone: ${weeklySync.schedule.timezone}`);
-    warnings.push(`Invalid timezone: ${weeklySync.schedule.timezone}`);
+    console.warn(`[Config] WARNING: Invalid timezone: ${weeklySync.collection.timezone}`);
+    warnings.push(`Invalid timezone: ${weeklySync.collection.timezone}`);
   }
 
   // Check Airtable configuration

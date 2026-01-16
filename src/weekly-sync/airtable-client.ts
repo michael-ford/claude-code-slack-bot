@@ -88,22 +88,83 @@ export interface UpdateSegmentRecord {
   weeklyUpdateId: string;
   /** Project record ID */
   projectId: string;
+  /** Person record ID */
+  personId: string;
+  /** Person name (from linked record) */
+  personName?: string;
+  /** Week start date (YYYY-MM-DD) */
+  weekStart: string;
   /** Parsed content for this project */
   content: string;
-  /** Worked on items (JSON array stored as text) */
-  workedOn: string | null;
-  /** Coming up items (JSON array stored as text) */
-  comingUp: string | null;
-  /** Blockers (JSON array stored as text) */
+  /** Key accomplishments for the week */
+  keyAccomplishments: string | null;
+  /** Blockers encountered */
   blockers: string | null;
+  /** Next steps planned */
+  nextSteps: string | null;
+  /** Worked on items (JSON array stored as text) */
+  workedOn?: string | null;
+  /** Coming up items (JSON array stored as text) */
+  comingUp?: string | null;
   /** Questions (JSON array stored as text) */
-  questions: string | null;
+  questions?: string | null;
   /** Parsing confidence score 0-100 */
-  confidenceScore: number;
+  confidenceScore?: number;
   /** Whether this segment has been posted to the channel */
-  postedToChannel: boolean;
+  postedToChannel?: boolean;
   /** Thread timestamp if posted as a late update */
-  threadTs: string | null;
+  threadTs?: string | null;
+}
+
+/**
+ * Thread type for tracked threads.
+ */
+export type ThreadType = 'collection' | 'pre-meeting' | 'post-meeting';
+
+/**
+ * A tracked thread record from the Tracked Threads table.
+ */
+export interface TrackedThreadRecord {
+  /** Airtable record ID */
+  id: string;
+  /** Slack thread timestamp */
+  threadTs: string;
+  /** Slack channel ID */
+  channelId: string;
+  /** Type of thread */
+  threadType: ThreadType;
+  /** Sync cycle identifier */
+  syncCycleId: string;
+  /** Project record ID (for pre/post-meeting threads) */
+  projectId: string | null;
+  /** Person record ID (for collection threads) */
+  personId: string | null;
+  /** ISO date for the sync week (YYYY-MM-DD) */
+  weekStart: string;
+  /** Additional context as JSON string */
+  contextJson: string | null;
+}
+
+/**
+ * Data required to create a tracked thread record.
+ */
+export interface CreateTrackedThreadData {
+  /** Slack thread timestamp */
+  threadTs: string;
+  /** Slack channel ID */
+  channelId: string;
+  /** Type of thread */
+  threadType: ThreadType;
+  /** Sync cycle identifier */
+  syncCycleId: string;
+  /** Project record ID (for pre/post-meeting threads) */
+  projectId: string | null;
+  /** Person record ID (for collection threads) */
+  personId: string | null;
+  /** ISO date for the sync week (YYYY-MM-DD) */
+  weekStart: string;
+  /** Additional context as JSON string */
+  contextJson: string | null;
 }
 
 // ============================================================================
@@ -143,6 +204,20 @@ const TABLES = {
   PROJECTS: 'Projects',
   WEEKLY_UPDATES: 'Weekly Updates',
   UPDATE_SEGMENTS: 'Update Segments',
+  TRACKED_THREADS: 'tblMBjasAWbozfAKV',
+} as const;
+
+/** Tracked Threads field IDs */
+const TRACKED_THREADS_FIELDS = {
+  THREAD_TS: 'fldq8EUzqoYQrPV9Z',
+  CHANNEL_ID: 'fldUCnkR386X0XTvr',
+  THREAD_TYPE: 'fldJW7G1PVG1ymSxh',
+  SYNC_CYCLE_ID: 'fldZASmx0ibCh1nE7',
+  PROJECT: 'fldksiNgui9ugPxjw',
+  PERSON: 'fldy9XgPnIfB6A28o',
+  WEEK_START: 'fldkmagxvURk0mp6S',
+  CREATED_AT: 'fldGDJjMAQTHGA8U5',
+  CONTEXT_JSON: 'fldnJT9WADWblg7lK',
 } as const;
 
 // ============================================================================
@@ -539,6 +614,114 @@ export class WeeklySyncAirtableClient {
   }
 
   // ==========================================================================
+  // Tracked Threads Operations
+  // ==========================================================================
+
+  /**
+   * Create a new Tracked Thread record.
+   *
+   * @param data - Data for the new tracked thread
+   * @returns The created record's ID
+   */
+  async createTrackedThread(data: CreateTrackedThreadData): Promise<string> {
+    try {
+      const fields: Record<string, unknown> = {
+        [TRACKED_THREADS_FIELDS.THREAD_TS]: data.threadTs,
+        [TRACKED_THREADS_FIELDS.CHANNEL_ID]: data.channelId,
+        [TRACKED_THREADS_FIELDS.THREAD_TYPE]: data.threadType,
+        [TRACKED_THREADS_FIELDS.SYNC_CYCLE_ID]: data.syncCycleId,
+        [TRACKED_THREADS_FIELDS.WEEK_START]: data.weekStart,
+        [TRACKED_THREADS_FIELDS.CREATED_AT]: new Date().toISOString(),
+      };
+
+      if (data.projectId) {
+        fields[TRACKED_THREADS_FIELDS.PROJECT] = [{ id: data.projectId }];
+      }
+      if (data.personId) {
+        fields[TRACKED_THREADS_FIELDS.PERSON] = [{ id: data.personId }];
+      }
+      if (data.contextJson) {
+        fields[TRACKED_THREADS_FIELDS.CONTEXT_JSON] = data.contextJson;
+      }
+
+      const record = await this.withRetry(() =>
+        this.base(TABLES.TRACKED_THREADS).create(fields as unknown as FieldSet)
+      );
+
+      return record.id;
+    } catch (error) {
+      console.error('[AirtableClient] Error creating tracked thread:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Find a tracked thread by channel ID and thread timestamp.
+   *
+   * Note: This method uses field IDs in the filter formula (e.g., {fldUCnkR386X0XTvr}),
+   * but Airtable returns results with field names (e.g., 'Channel Id').
+   * See mapTrackedThreadRecord() for the field name mapping.
+   *
+   * @param channelId - Slack channel ID
+   * @param threadTs - Slack thread timestamp
+   * @returns TrackedThreadRecord if found, null otherwise
+   */
+  async findTrackedThread(
+    channelId: string,
+    threadTs: string
+  ): Promise<TrackedThreadRecord | null> {
+    try {
+      const records = await this.withRetry(() =>
+        this.base(TABLES.TRACKED_THREADS)
+          .select({
+            filterByFormula: `AND({${TRACKED_THREADS_FIELDS.CHANNEL_ID}} = '${this.escapeFormulaString(channelId)}', {${TRACKED_THREADS_FIELDS.THREAD_TS}} = '${this.escapeFormulaString(threadTs)}')`,
+            maxRecords: 1,
+          })
+          .firstPage()
+      );
+
+      if (records.length === 0) {
+        return null;
+      }
+
+      return this.mapTrackedThreadRecord(records[0]);
+    } catch (error) {
+      console.warn(
+        `[AirtableClient] Error finding tracked thread ${channelId}/${threadTs}:`,
+        error
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Get all tracked threads created since a given date.
+   *
+   * Note: This method uses field IDs in the filter formula (e.g., {fldkmagxvURk0mp6S}),
+   * but Airtable returns results with field names (e.g., 'Week Start').
+   * See mapTrackedThreadRecord() for the field name mapping.
+   *
+   * @param sinceDate - ISO date string (YYYY-MM-DD) to filter from
+   * @returns Array of TrackedThreadRecord
+   */
+  async getActiveTrackedThreads(sinceDate: string): Promise<TrackedThreadRecord[]> {
+    try {
+      const records = await this.withRetry(() =>
+        this.base(TABLES.TRACKED_THREADS)
+          .select({
+            filterByFormula: `{${TRACKED_THREADS_FIELDS.WEEK_START}} >= '${this.escapeFormulaString(sinceDate)}'`,
+          })
+          .all()
+      );
+
+      return records.map((record) => this.mapTrackedThreadRecord(record));
+    } catch (error) {
+      console.error('[AirtableClient] Error getting active tracked threads:', error);
+      throw error;
+    }
+  }
+
+  // ==========================================================================
   // Update Segments Operations
   // ==========================================================================
 
@@ -673,6 +856,20 @@ export class WeeklySyncAirtableClient {
       );
       throw error;
     }
+  }
+
+  /**
+   * Get all Update Segments for a specific project and week.
+   *
+   * @param projectId - Airtable project record ID
+   * @param weekStart - ISO date string (YYYY-MM-DD) for the week start
+   * @returns Array of UpdateSegmentRecord for the project and week
+   */
+  async getUpdateSegmentsByProject(
+    projectId: string,
+    weekStart: string
+  ): Promise<UpdateSegmentRecord[]> {
+    return this.getSegmentsForProject(projectId, weekStart);
   }
 
   // ==========================================================================
@@ -869,19 +1066,64 @@ export class WeeklySyncAirtableClient {
   ): UpdateSegmentRecord {
     const weeklyUpdateLink = record.fields['Weekly Update'] as string[] | undefined;
     const projectLink = record.fields['Project'] as string[] | undefined;
+    const personLink = record.fields['Person'] as string[] | undefined;
 
     return {
       id: record.id,
       weeklyUpdateId: weeklyUpdateLink?.[0] || '',
       projectId: projectLink?.[0] || '',
+      personId: personLink?.[0] || '',
+      personName: (record.fields['Person Name'] as string) || undefined,
+      weekStart: (record.fields['Week Start'] as string) || '',
       content: (record.fields['Content'] as string) || '',
+      keyAccomplishments: (record.fields['Key Accomplishments'] as string) || null,
+      blockers: (record.fields['Blockers'] as string) || null,
+      nextSteps: (record.fields['Next Steps'] as string) || null,
       workedOn: (record.fields['Worked On'] as string) || null,
       comingUp: (record.fields['Coming Up'] as string) || null,
-      blockers: (record.fields['Blockers'] as string) || null,
       questions: (record.fields['Questions'] as string) || null,
       confidenceScore: (record.fields['Confidence Score'] as number) || 0,
       postedToChannel: (record.fields['Posted To Channel'] as boolean) || false,
       threadTs: (record.fields['Thread Ts'] as string) || null,
+    };
+  }
+
+  /**
+   * Map an Airtable record to a TrackedThreadRecord.
+   *
+   * IMPORTANT: Field Name Mapping
+   * This mapper uses Airtable field NAMES, not field IDs. When Airtable returns
+   * query results, it uses field names even though we query using field IDs.
+   *
+   * Field Mapping (verified against Tracked Threads table schema):
+   * - 'Thread Ts' (fldq8EUzqoYQrPV9Z) - Slack thread timestamp
+   * - 'Channel Id' (fldUCnkR386X0XTvr) - Slack channel ID
+   * - 'Thread Type' (fldJW7G1PVG1ymSxh) - Type: collection/pre-meeting/post-meeting
+   * - 'Sync Cycle ID' (fldZASmx0ibCh1nE7) - Sync cycle identifier
+   * - 'Project' (fldksiNgui9ugPxjw) - Link to Projects table
+   * - 'Person' (fldy9XgPnIfB6A28o) - Link to People table
+   * - 'Week Start' (fldkmagxvURk0mp6S) - ISO date for the sync week
+   * - 'Context JSON' (fldnJT9WADWblg7lK) - Additional context as JSON string
+   *
+   * These field names match the schema defined in:
+   * thoughts/plans/2026-01-12_weekly-sync-system.md (lines 216-228)
+   */
+  private mapTrackedThreadRecord(
+    record: AirtableRecord<FieldSet>
+  ): TrackedThreadRecord {
+    const projectLink = record.fields['Project'] as string[] | undefined;
+    const personLink = record.fields['Person'] as string[] | undefined;
+
+    return {
+      id: record.id,
+      threadTs: (record.fields['Thread Ts'] as string) || '',
+      channelId: (record.fields['Channel Id'] as string) || '',
+      threadType: (record.fields['Thread Type'] as ThreadType) || 'collection',
+      syncCycleId: (record.fields['Sync Cycle ID'] as string) || '',
+      projectId: projectLink?.[0] || null,
+      personId: personLink?.[0] || null,
+      weekStart: (record.fields['Week Start'] as string) || '',
+      contextJson: (record.fields['Context JSON'] as string) || null,
     };
   }
 }

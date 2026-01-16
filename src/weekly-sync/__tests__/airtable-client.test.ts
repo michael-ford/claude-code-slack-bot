@@ -438,6 +438,147 @@ describe('WeeklySyncAirtableClient', () => {
     });
   });
 
+  describe('Tracked Threads Operations', () => {
+    describe('createTrackedThread', () => {
+      it('creates record with correct fields', async () => {
+        mockCreate.mockResolvedValueOnce({
+          id: 'recTrackedThread001',
+          fields: {
+            'Thread Ts': '1705152000.123456',
+            'Channel Id': 'C0123ABCDEF',
+            'Thread Type': 'collection',
+            'Sync Cycle ID': 'sync-2026-01-13-001',
+            'Person': ['recPerson123'],
+            'Week Start': '2026-01-13',
+            'Created At': '2026-01-13T10:00:00.000Z',
+          },
+        });
+
+        const recordId = await client.createTrackedThread({
+          threadTs: '1705152000.123456',
+          channelId: 'C0123ABCDEF',
+          threadType: 'collection',
+          syncCycleId: 'sync-2026-01-13-001',
+          personId: 'recPerson123',
+          projectId: null,
+          weekStart: '2026-01-13',
+          contextJson: null,
+        });
+
+        expect(recordId).toBeDefined();
+        expect(typeof recordId).toBe('string');
+        expect(recordId.length).toBeGreaterThan(0);
+      });
+
+      it('returns the record ID', async () => {
+        mockCreate.mockResolvedValueOnce({
+          id: 'recTrackedThread456',
+          fields: {},
+        });
+
+        const recordId = await client.createTrackedThread({
+          threadTs: '1705152000.789012',
+          channelId: 'C9876ZYXWVU',
+          threadType: 'pre-meeting',
+          syncCycleId: 'sync-2026-01-13-002',
+          personId: null,
+          projectId: 'recProject789',
+          weekStart: '2026-01-13',
+          contextJson: '{"meetingTime": "2026-01-13T14:00:00Z"}',
+        });
+
+        expect(recordId).toMatch(/^rec[A-Za-z0-9]+$/);
+      });
+    });
+
+    describe('findTrackedThread', () => {
+      it('returns thread by channelId + threadTs', async () => {
+        mockFirstPage.mockResolvedValueOnce([
+          {
+            id: 'recTrackedThread789',
+            fields: {
+              'Thread Ts': '1705152000.123456',
+              'Channel Id': 'C0123ABCDEF',
+              'Thread Type': 'collection',
+              'Sync Cycle ID': 'sync-2026-01-13-001',
+              'Person': ['recPerson123'],
+              'Week Start': '2026-01-13',
+            },
+          },
+        ]);
+
+        const result = await client.findTrackedThread(
+          'C0123ABCDEF',
+          '1705152000.123456'
+        );
+
+        expect(result).not.toBeNull();
+        expect(result).toMatchObject({
+          id: expect.any(String),
+          channelId: 'C0123ABCDEF',
+          threadTs: '1705152000.123456',
+          threadType: 'collection',
+          syncCycleId: expect.any(String),
+        });
+      });
+
+      it('returns null for unknown thread', async () => {
+        mockFirstPage.mockResolvedValueOnce([]);
+
+        const result = await client.findTrackedThread(
+          'C9999UNKNOWN',
+          '1705152000.999999'
+        );
+
+        expect(result).toBeNull();
+      });
+    });
+
+    describe('getActiveTrackedThreads', () => {
+      it('returns threads since given date', async () => {
+        mockAll.mockResolvedValueOnce([
+          {
+            id: 'recThread1',
+            fields: {
+              'Thread Ts': '1705152000.111111',
+              'Channel Id': 'C0123ABC',
+              'Thread Type': 'collection',
+              'Sync Cycle ID': 'sync-001',
+              'Person': ['recPerson1'],
+              'Week Start': '2026-01-13',
+              'Created At': '2026-01-13T10:00:00.000Z',
+            },
+          },
+          {
+            id: 'recThread2',
+            fields: {
+              'Thread Ts': '1705152000.222222',
+              'Channel Id': 'C0123DEF',
+              'Thread Type': 'pre-meeting',
+              'Sync Cycle ID': 'sync-001',
+              'Project': ['recProject1'],
+              'Week Start': '2026-01-13',
+              'Created At': '2026-01-13T11:00:00.000Z',
+            },
+          },
+        ]);
+
+        const threads = await client.getActiveTrackedThreads('2026-01-06');
+
+        expect(Array.isArray(threads)).toBe(true);
+        expect(threads.length).toBe(2);
+        threads.forEach((thread) => {
+          expect(thread).toMatchObject({
+            id: expect.any(String),
+            threadTs: expect.any(String),
+            channelId: expect.any(String),
+            threadType: expect.stringMatching(/^(collection|pre-meeting|post-meeting)$/),
+          });
+        });
+      });
+    });
+  });
+
   describe('createUpdateSegments', () => {
     it('creates segments in batches of 10', async () => {
       const weeklyUpdateId = 'recWeeklyUpdate123';

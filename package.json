@@ -13,7 +13,9 @@
     "test:watch": "vitest",
     "mapping:list": "tsx scripts/update-slack-jira-mapping.ts list",
     "mapping:sync": "tsx scripts/update-slack-jira-mapping.ts sync",
-    "mapping:add": "tsx scripts/update-slack-jira-mapping.ts add"
+    "mapping:add": "tsx scripts/update-slack-jira-mapping.ts add",
+    "submit-update": "tsx scripts/submit_weekly_update.ts",
+    "get-transcript": "tsx scripts/get_fireflies_transcript.ts"
   },
   "keywords": [],
   "author": "",
@@ -21,6 +23,7 @@
   "devDependencies": {
     "@types/airtable": "^0.10.0",
     "@types/node": "=24.0.4",
+    "@types/node-cron": "^3.0.11",
     "tsx": "=4.20.3",
     "typescript": "5.8.3",
     "vitest": "^4.0.15"
@@ -34,6 +37,7 @@
     "airtable": "^0.12.2",
     "dotenv": "=16.6.0",
     "jsonwebtoken": "=9.0.2",
+    "node-cron": "^4.2.1",
     "node-fetch": "=3.3.2"
   }
 }
