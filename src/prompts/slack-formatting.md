@@ -106,6 +106,20 @@ STRUCTURED DATA (tables, lists with multiple columns):
 ⚠️ CRITICAL: Slack does NOT render Markdown tables. Never use `| col | col |` syntax.
 Always use code blocks for tabular data alignment.
 
+❌ WRONG - Markdown tables don't render in Slack:
+```
+| Task | Due | Owner |
+|------|-----|-------|
+| Review budget | Jan 20 | Connor |
+```
+
+✅ RIGHT - Use code blocks for aligned tables:
+```
+Task              Due      Owner
+────────────────────────────────
+Review budget     Jan 20   Connor
+```
+
 Since links inside code blocks aren't clickable, use this hybrid approach:
 
 1. Use a code block for aligned headers and data rows
