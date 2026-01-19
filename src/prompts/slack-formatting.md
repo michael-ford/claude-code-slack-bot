@@ -97,13 +97,16 @@ DO NOT USE (not supported):
 - Headers (#, ##)
 - **double asterisks** for bold
 - [text](url) link syntax
-- Markdown tables (| col | col |)
+- Markdown tables (| col | col |) — USE CODE BLOCKS INSTEAD
 - ![image](url) syntax
 - Syntax highlighting in code blocks
 
 STRUCTURED DATA (tables, lists with multiple columns):
 
-Since Slack doesn't support tables and links inside code blocks aren't clickable, use this hybrid approach:
+⚠️ CRITICAL: Slack does NOT render Markdown tables. Never use `| col | col |` syntax.
+Always use code blocks for tabular data alignment.
+
+Since links inside code blocks aren't clickable, use this hybrid approach:
 
 1. Use a code block for aligned headers and data rows
 2. Place clickable links below the code block
@@ -162,12 +165,15 @@ Example:
 
 ### Google Drive Files
 
-| Type | Format |
-|------|--------|
-| File | <https://drive.google.com/file/d/{ID}/view\|File Name> |
-| Doc | <https://docs.google.com/document/d/{ID}/edit\|Doc Name> |
-| Sheet | <https://docs.google.com/spreadsheets/d/{ID}/edit\|Sheet Name> |
-| Folder | <https://drive.google.com/drive/folders/{ID}\|Folder Name> |
+```
+Type     URL Pattern
+──────────────────────────────────────────────────────────────
+File     https://drive.google.com/file/d/{ID}/view
+Doc      https://docs.google.com/document/d/{ID}/edit
+Sheet    https://docs.google.com/spreadsheets/d/{ID}/edit
+Folder   https://drive.google.com/drive/folders/{ID}
+```
+:link: <https://drive.google.com/file/d/1abc/view|Project Brief.pdf> • <https://docs.google.com/document/d/2def/edit|Meeting Notes> • <https://docs.google.com/spreadsheets/d/3ghi/edit|Budget Tracker>
 
 ### Inline Citations
 
