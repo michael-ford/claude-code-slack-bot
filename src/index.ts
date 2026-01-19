@@ -195,8 +195,9 @@ async function start() {
       logger.info('Shutting down gracefully...');
 
       try {
-        // Notify all active sessions about shutdown
-        await slackHandler.notifyShutdown();
+        // TODO: Determine what to do with shutdown notifications
+        // Currently disabled - sends Korean message to all active sessions
+        // await slackHandler.notifyShutdown();
 
         // Save sessions for persistence
         slackHandler.saveSessions();
