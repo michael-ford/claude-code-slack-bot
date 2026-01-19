@@ -47,5 +47,17 @@ describe('slack-formatting prompt loader', () => {
       // File should only be read once
       expect(fs.readFileSync).toHaveBeenCalledTimes(1);
     });
+
+    it('should include current date in output', async () => {
+      const mockContent = '# Test formatting guide';
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+      vi.mocked(fs.readFileSync).mockReturnValue(mockContent);
+
+      const { loadSlackFormattingPrompt } = await import('./slack-formatting');
+      const result = loadSlackFormattingPrompt();
+
+      // Should contain "Current date:" followed by a date string
+      expect(result).toMatch(/Current date: \w+, \w+ \d+, \d{4}/);
+    });
   });
 });

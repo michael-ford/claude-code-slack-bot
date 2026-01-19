@@ -3,24 +3,35 @@ import * as path from 'path';
 
 const SLACK_FORMATTING_PATH = path.join(__dirname, 'slack-formatting.md');
 
-let cachedPrompt: string | null = null;
+let cachedTemplate: string | null = null;
 
 /**
  * Load the Slack formatting guide prompt.
- * Content is wrapped in <slack_formatting> tags and cached after first load.
+ * Template is cached after first load; current date is injected fresh per call.
+ * Content is wrapped in <slack_formatting> tags.
  * Returns empty string if file doesn't exist (graceful degradation).
  */
 export function loadSlackFormattingPrompt(): string {
-  if (cachedPrompt !== null) {
-    return cachedPrompt;
+  if (cachedTemplate === null) {
+    if (!fs.existsSync(SLACK_FORMATTING_PATH)) {
+      cachedTemplate = '';
+    } else {
+      cachedTemplate = fs.readFileSync(SLACK_FORMATTING_PATH, 'utf-8');
+    }
   }
 
-  if (!fs.existsSync(SLACK_FORMATTING_PATH)) {
-    cachedPrompt = '';
-    return cachedPrompt;
-  }
+  if (!cachedTemplate) return '';
 
-  const content = fs.readFileSync(SLACK_FORMATTING_PATH, 'utf-8');
-  cachedPrompt = `<slack_formatting>\n${content}\n</slack_formatting>`;
-  return cachedPrompt;
+  const today = new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+
+  return `<slack_formatting>
+Current date: ${today}
+
+${cachedTemplate}
+</slack_formatting>`;
 }
