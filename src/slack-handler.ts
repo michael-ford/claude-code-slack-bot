@@ -2550,7 +2550,7 @@ export class SlackHandler {
     timeRemaining: number,
     existingMessageTs?: string
   ): Promise<string | undefined> {
-    const warningText = `⚠️ *세션 만료 예정*\n\n이 세션은 *${MessageFormatter.formatTimeRemaining(timeRemaining)}* 후에 만료됩니다.\n세션을 유지하려면 메시지를 보내주세요.`;
+    const warningText = `⚠️ *Session Expiring Soon*\n\nThis session will expire in *${MessageFormatter.formatTimeRemaining(timeRemaining)}*.\nSend a message to keep the session active.`;
     const threadTs = session.threadTs;
     const channel = session.channelId;
 
@@ -2582,7 +2582,7 @@ export class SlackHandler {
    * Handle session expiry - send final message that session is closed
    */
   private async handleSessionExpiry(session: ConversationSession): Promise<void> {
-    const expiryText = `🔒 *세션이 종료되었습니다*\n\n24시간 동안 활동이 없어 이 세션이 종료되었습니다.\n새로운 대화를 시작하려면 다시 메시지를 보내주세요.`;
+    const expiryText = `🔒 *Session Ended*\n\nThis session has ended due to 24 hours of inactivity.\nPlease send a message to start a new conversation.`;
 
     try {
       // Update the warning message to show session closed, or send new message
