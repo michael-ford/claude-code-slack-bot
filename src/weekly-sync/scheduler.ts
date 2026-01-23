@@ -315,13 +315,13 @@ export class WeeklySyncScheduler {
     const nextCollectionTime = this.getNextCollectionTime();
     const nextSummaryTime = this.getNextSummaryTime();
 
-    this.logger.log(
+    this.logger.info(
       `Weekly sync scheduler started (timezone: ${this.timezone}, collection: Friday ${this.collectionHour}:00, summaries: Monday ${this.summaryHour}:00)`
     );
-    this.logger.log(
+    this.logger.info(
       `Next collection: ${nextCollectionTime.toLocaleString('en-US', { timeZone: this.timezone })}`
     );
-    this.logger.log(
+    this.logger.info(
       `Next summary: ${nextSummaryTime.toLocaleString('en-US', { timeZone: this.timezone })}`
     );
   }
@@ -345,7 +345,7 @@ export class WeeklySyncScheduler {
     }
 
     if (stoppedAny) {
-      this.logger.log('Weekly sync scheduler stopped');
+      this.logger.info('Weekly sync scheduler stopped');
     }
   }
 }
